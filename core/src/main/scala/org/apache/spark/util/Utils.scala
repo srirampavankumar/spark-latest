@@ -28,7 +28,7 @@ import java.nio.channels.{Channels, FileChannel, WritableByteChannel}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.SecureRandom
-import java.util.{Locale, Properties, Random, UUID}
+import java.util.{Base64,Locale, Properties, Random, UUID}
 import java.util.concurrent._
 import java.util.concurrent.TimeUnit.NANOSECONDS
 import java.util.zip.{GZIPInputStream, ZipInputStream}
@@ -644,6 +644,9 @@ private[spark] object Utils extends Logging {
     (result, math.max(NANOSECONDS.toMillis(endTime - startTime), 0))
   }
 
+
+
+
   /**
    * Download `in` to `tempFile`, then move it to `destFile`.
    *
@@ -665,7 +668,7 @@ private[spark] object Utils extends Logging {
       fileOverwrite: Boolean): Unit = {
     val tempFile = File.createTempFile("fetchFileTemp", null,
       new File(destFile.getParentFile.getAbsolutePath))
-    logInfo(s"Fetching $url to $tempFile")
+    logInfo(s"Fetching ${Utils.maskUserInfo(url)} to $tempFile")
 
     try {
       val out = new FileOutputStream(tempFile)
@@ -680,6 +683,17 @@ private[spark] object Utils extends Logging {
     }
   }
 
+  /**
+   * Returns the URL string with credentials masked
+   */
+  def maskUserInfo(pathUrl: String): String = {
+    if (pathUrl.matches("^(https|http|ftp)://.*$")) {
+      pathUrl.replaceAll("(?<=//).*(?=@)", "******")
+    }
+    else {
+      pathUrl
+    }
+  }
   /**
    * Copy `sourceFile` to `destFile`.
    *
@@ -706,8 +720,10 @@ private[spark] object Utils extends Logging {
     if (destFile.exists) {
       if (!filesEqualRecursive(sourceFile, destFile)) {
         if (fileOverwrite) {
+
           logInfo(
-            s"File $destFile exists and does not match contents of $url, replacing it with $url"
+            s"File $destFile exists and does not match contents of $Utils.maskUserInfo(url), " +
+              s"replacing it with $Utils.maskUserInfo(url)"
           )
           if (!destFile.delete()) {
             throw new SparkException(
@@ -738,7 +754,9 @@ private[spark] object Utils extends Logging {
     if (removeSourceFile) {
       Files.move(sourceFile.toPath, destFile.toPath)
     } else {
-      logInfo(s"Copying ${sourceFile.getAbsolutePath} to ${destFile.getAbsolutePath}")
+      logInfo(s"Copying ${Utils.maskUserInfo({sourceFile.getAbsolutePath})}" +
+        s" to ${destFile.getAbsolutePath}")
+
       copyRecursive(sourceFile, destFile)
     }
   }
@@ -790,6 +808,7 @@ private[spark] object Utils extends Logging {
     val targetFile = new File(targetDir, filename)
     val uri = new URI(url)
     val fileOverwrite = conf.getBoolean("spark.files.overwrite", defaultValue = false)
+     // noinspection ScalaStyle
     Option(uri.getScheme).getOrElse("file") match {
       case "spark" =>
         if (SparkEnv.get == null) {
@@ -800,9 +819,22 @@ private[spark] object Utils extends Logging {
         val is = Channels.newInputStream(source)
         downloadFile(url, is, targetFile, fileOverwrite)
       case "http" | "https" | "ftp" =>
-        val uc = new URL(url).openConnection()
-        val timeoutMs =
-          conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
+//        val uc = new URL(url).openConnection()
+//        val timeoutMs =
+//          conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
+
+        val url_object=new URL(url)
+        val user_info= url_object.getUserInfo
+        val uc= url_object.openConnection().asInstanceOf[HttpURLConnection]
+        uc.setRequestMethod("GET")
+        if(user_info!=null){
+
+          val authInfo= "Basic "+Base64.getEncoder.encodeToString(user_info.getBytes)
+          uc.setRequestProperty("Authorization", authInfo)
+        }
+
+        val timeoutMs = conf.getTimeAsSeconds("spark.files.fetchTimeout","60s").toInt*1000
+
         uc.setConnectTimeout(timeoutMs)
         uc.setReadTimeout(timeoutMs)
         uc.connect()
@@ -3013,6 +3045,7 @@ private[spark] object Utils extends Logging {
     Hex.encodeHexString(secretBytes)
   }
 
+
   /**
    * Returns true if and only if the underlying class is a member class.
    *
@@ -3405,6 +3438,8 @@ private[spark] class CircularBuffer(sizeInBytes: Int = 10240) extends java.io.Ou
     isBufferFull = isBufferFull || (pos == 0)
   }
 
+
+
   override def toString: String = {
     if (!isBufferFull) {
       return new String(buffer, 0, pos, StandardCharsets.UTF_8)
@@ -3415,4 +3450,6 @@ private[spark] class CircularBuffer(sizeInBytes: Int = 10240) extends java.io.Ou
     System.arraycopy(buffer, 0, nonCircularBuffer, buffer.length - pos, pos)
     new String(nonCircularBuffer, StandardCharsets.UTF_8)
   }
+
+
 }

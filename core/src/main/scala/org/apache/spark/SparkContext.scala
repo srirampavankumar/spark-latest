@@ -1651,7 +1651,9 @@ class SparkContext(config: SparkConf) extends Logging {
 
     val timestamp = if (addedOnSubmit) startTime else System.currentTimeMillis
     if (!isArchive && addedFiles.putIfAbsent(key, timestamp).isEmpty) {
-      logInfo(s"Added file $path at $key with timestamp $timestamp")
+//      logInfo(s"Added file $path at $key with timestamp $timestamp")
+      logInfo(s"Added file ${Utils.maskUserInfo(path)} " +
+        s"at ${Utils.maskUserInfo(key)} with timestamp $timestamp")
       // Fetch the file locally so that closures which are run on the driver can still use the
       // SparkFiles API to access files.
       Utils.fetchFile(uri.toString, new File(SparkFiles.getRootDirectory()), conf,
@@ -1662,7 +1664,9 @@ class SparkContext(config: SparkConf) extends Logging {
         addedArchives.putIfAbsent(
           UriBuilder.fromUri(new URI(key)).fragment(uri.getFragment).build().toString,
           timestamp).isEmpty) {
-      logInfo(s"Added archive $path at $key with timestamp $timestamp")
+
+      logInfo(s"Added archive ${Utils.maskUserInfo(path)} at ${Utils.maskUserInfo(key)} " +
+        s"with timestamp $timestamp")
       // If the scheme is file, use URI to simply copy instead of downloading.
       val uriToUse = if (!isLocal && scheme == "file") uri else new URI(key)
       val uriToDownload = UriBuilder.fromUri(uriToUse).fragment(null).build()
@@ -1672,7 +1676,8 @@ class SparkContext(config: SparkConf) extends Logging {
         SparkFiles.getRootDirectory(),
         if (uri.getFragment != null) uri.getFragment else source.getName)
       logInfo(
-        s"Unpacking an archive $path from ${source.getAbsolutePath} to ${dest.getAbsolutePath}")
+        s"Unpacking an archive ${Utils.maskUserInfo(path)} " +
+          s"from ${Utils.maskUserInfo({source.getAbsolutePath})} to ${dest.getAbsolutePath}")
       Utils.deleteRecursively(dest)
       Utils.unpack(source, dest)
       postEnvironmentUpdate()
@@ -2028,13 +2033,15 @@ class SparkContext(config: SparkConf) extends Logging {
         val (added, existed) = keys.partition(addedJars.putIfAbsent(_, timestamp).isEmpty)
         if (added.nonEmpty) {
           val jarMessage = if (scheme != "ivy") "JAR" else "dependency jars of Ivy URI"
-          logInfo(s"Added $jarMessage $path at ${added.mkString(",")} with timestamp $timestamp")
+          logInfo(s"Added $jarMessage ${Utils.maskUserInfo(path)} at" +
+            s" ${Utils.maskUserInfo({added.mkString(",")})} with timestamp $timestamp")
           postEnvironmentUpdate()
         }
         if (existed.nonEmpty) {
           val jarMessage = if (scheme != "ivy") "JAR" else "dependency jars of Ivy URI"
-          logInfo(s"The $jarMessage $path at ${existed.mkString(",")} has been added already." +
-            " Overwriting of added jar is not supported in the current version.")
+          logInfo(s"The $jarMessage ${Utils.maskUserInfo(path)} at " +
+            s"${Utils.maskUserInfo({added.mkString(",")})}has been added already.Overwriting " +
+            s"of added jar is not supported in the current version.")
         }
       }
     }
