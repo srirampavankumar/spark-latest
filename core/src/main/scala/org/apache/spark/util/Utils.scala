@@ -28,7 +28,7 @@ import java.nio.channels.{Channels, FileChannel, WritableByteChannel}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.SecureRandom
-import java.util.{Base64,Locale, Properties, Random, UUID}
+import java.util.{Base64, Locale, Properties, Random, UUID}
 import java.util.concurrent._
 import java.util.concurrent.TimeUnit.NANOSECONDS
 import java.util.zip.{GZIPInputStream, ZipInputStream}
@@ -823,17 +823,17 @@ private[spark] object Utils extends Logging {
 //        val timeoutMs =
 //          conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
 
-        val url_object=new URL(url)
-        val user_info= url_object.getUserInfo
-        val uc= url_object.openConnection().asInstanceOf[HttpURLConnection]
+        val url_object = new URL(url)
+        val user_info = url_object.getUserInfo
+        val uc = url_object.openConnection().asInstanceOf[HttpURLConnection]
         uc.setRequestMethod("GET")
-        if(user_info!=null){
+        if(user_info != null) {
 
-          val authInfo= "Basic "+Base64.getEncoder.encodeToString(user_info.getBytes)
+          val authInfo = "Basic "+Base64.getEncoder.encodeToString(user_info.getBytes)
           uc.setRequestProperty("Authorization", authInfo)
         }
 
-        val timeoutMs = conf.getTimeAsSeconds("spark.files.fetchTimeout","60s").toInt*1000
+        val timeoutMs = conf.getTimeAsSeconds("spark.files.fetchTimeout" ,"60s").toInt*1000
 
         uc.setConnectTimeout(timeoutMs)
         uc.setReadTimeout(timeoutMs)
