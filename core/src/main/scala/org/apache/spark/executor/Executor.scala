@@ -1167,7 +1167,8 @@ private[spark] class Executor(
           // Add it to our class loader
           val url = new File(root, localName).toURI.toURL
           if (!state.urlClassLoader.getURLs().contains(url)) {
-            logInfo(s"Adding ${Utils.maskUserInfo(url)} to class loader ${state.sessionUUID}")
+            logInfo(s"Adding ${Utils.maskUserInfo(url.toString)} " +
+              s"to class loader ${state.sessionUUID}")
             state.urlClassLoader.addURL(url)
             if (isStubbingEnabledForState(state.sessionUUID)) {
               renewClassLoader = true
