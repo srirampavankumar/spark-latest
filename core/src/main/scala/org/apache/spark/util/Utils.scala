@@ -28,7 +28,7 @@ import java.nio.channels.{Channels, FileChannel, WritableByteChannel}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.security.SecureRandom
-import java.util.{Locale, Properties, Random, UUID}
+import java.util.{Base64,Locale, Properties, Random, UUID}
 import java.util.concurrent._
 import java.util.concurrent.TimeUnit.NANOSECONDS
 import java.util.zip.{GZIPInputStream, ZipInputStream}
@@ -575,7 +575,7 @@ private[spark] object Utils
       fileOverwrite: Boolean): Unit = {
     val tempFile = File.createTempFile("fetchFileTemp", null,
       new File(destFile.getParentFile.getAbsolutePath))
-    logInfo(s"Fetching $url to $tempFile")
+    logInfo(s"Fetching $Utils.maskUserInfo(url) to $tempFile")
 
     try {
       val out = new FileOutputStream(tempFile)
@@ -617,7 +617,8 @@ private[spark] object Utils
       if (!filesEqualRecursive(sourceFile, destFile)) {
         if (fileOverwrite) {
           logInfo(
-            s"File $destFile exists and does not match contents of $url, replacing it with $url"
+            s"File $destFile exists and does not match contents of ${Utils.maskUserInfo(url)}," +
+              s" replacing it with ${Utils.maskUserInfo(url)}"
           )
           if (!destFile.delete()) {
             throw new SparkException(
@@ -648,7 +649,8 @@ private[spark] object Utils
     if (removeSourceFile) {
       Files.move(sourceFile.toPath, destFile.toPath)
     } else {
-      logInfo(s"Copying ${sourceFile.getAbsolutePath} to ${destFile.getAbsolutePath}")
+      logInfo(s"Copying ${Utils.maskUserInfo(sourceFile.getAbsolutePath)} to " +
+        s"${Utils.maskUserInfo(destFile.getAbsolutePath)}")
       copyRecursive(sourceFile, destFile)
     }
   }
@@ -710,9 +712,25 @@ private[spark] object Utils
         val is = Channels.newInputStream(source)
         downloadFile(url, is, targetFile, fileOverwrite)
       case "http" | "https" | "ftp" =>
-        val uc = new URL(url).openConnection()
-        val timeoutMs =
-          conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
+//        val uc = new URL(url).openConnection()
+//        val timeoutMs =
+//          conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
+//        uc.setConnectTimeout(timeoutMs)
+//        uc.setReadTimeout(timeoutMs)
+//        uc.connect()
+//        val in = uc.getInputStream()
+        val url_object = new URL(url)
+        val user_info = url_object.getUserInfo
+        val uc = url_object.openConnection().asInstanceOf[HttpURLConnection]
+        uc.setRequestMethod("GET")
+        if (user_info != null) {
+
+          val authInfo = "Basic " + Base64.getEncoder.encodeToString(user_info.getBytes)
+          uc.setRequestProperty("Authorization", authInfo)
+        }
+
+        val timeoutMs = conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
+
         uc.setConnectTimeout(timeoutMs)
         uc.setReadTimeout(timeoutMs)
         uc.connect()
@@ -732,6 +750,16 @@ private[spark] object Utils
 
     targetFile
   }
+
+  def maskUserInfo(pathUrl: String): String = {
+    if (pathUrl.matches("^(https|http|ftp)://.*$")) {
+      pathUrl.replaceAll("(?<=//).*(?=@)", "******")
+    }
+    else {
+      pathUrl
+    }
+  }
+
 
   /**
    * Fetch a file or directory from a Hadoop-compatible filesystem.
