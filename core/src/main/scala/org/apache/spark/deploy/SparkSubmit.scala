@@ -433,7 +433,7 @@ private[spark] class SparkSubmit extends Logging {
                 workingDirectory,
                 if (resolvedUri.getFragment != null) resolvedUri.getFragment else source.getName)
                 .getCanonicalFile
-              logInfo(s"Files $resolvedUri from $source to $dest")
+              logInfo(s"Files ${Utils.maskUserInfo(resolvedUri.toString)} from $source to $dest")
               Utils.deleteRecursively(dest)
               if (isArchive) {
                 Utils.unpack(source, dest)
@@ -1443,7 +1443,8 @@ private[spark] object SparkSubmitUtils extends Logging {
         brr.setName(s"repo-${i + 1}")
         cr.add(brr)
         // scalastyle:off println
-        printStream.println(s"$repo added as a remote repository with the name: ${brr.getName}")
+        printStream.println(s"${Utils.maskUserInfo(repo)} added as a remote" +
+          s" repository with the name: ${brr.getName}")
         // scalastyle:on println
       }
 
