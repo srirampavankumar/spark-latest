@@ -729,6 +729,7 @@ private[spark] object Utils
           uc.setRequestProperty("Authorization", authInfo)
         }
 
+        try {
         val timeoutMs = conf.getTimeAsSeconds("spark.files.fetchTimeout", "60s").toInt * 1000
 
         uc.setConnectTimeout(timeoutMs)
@@ -736,6 +737,21 @@ private[spark] object Utils
         uc.connect()
         val in = uc.getInputStream()
         downloadFile(url, in, targetFile, fileOverwrite)
+        } catch {
+          case e: SocketTimeoutException =>
+            // Handle connection or read timeout
+            logError(s"Connection timed out: ${uc.getURL}", e)
+
+          case e: FileNotFoundException =>
+            logWarning(s"File not found at ${uc.getURL}", e)
+
+          case e: IOException =>
+            logError(s"I/O error while opening input stream from ${uc.getURL}", e)
+
+          case e: Exception =>
+            logError(s"Unexpected error fetching input stream from ${uc.getURL}", e)
+
+        }
       case "file" =>
         // In the case of a local file, copy the local file to the target directory.
         // Note the difference between uri vs url.

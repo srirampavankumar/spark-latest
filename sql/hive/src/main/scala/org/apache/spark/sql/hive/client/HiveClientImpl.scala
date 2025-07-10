@@ -1313,7 +1313,8 @@ private[hive] object HiveClientImpl extends Logging {
       sparkConf.getAll.toMap ++ extraConfig).toMap
     confMap.foreach { case (k, v) => hiveConf.set(k, v, SOURCE_SPARK) }
     SQLConf.get.redactOptions(confMap).foreach { case (k, v) =>
-      logDebug(s"Applying Hadoop/Hive/Spark and extra properties to Hive Conf:$k=$v")
+      logDebug(s"Applying Hadoop/Hive/Spark and extra properties to " +
+        s"Hive Conf:$k=${Utils.maskUserInfo(v)}")
     }
     // Disable CBO because we removed the Calcite dependency.
     hiveConf.setBoolean("hive.cbo.enable", false)
