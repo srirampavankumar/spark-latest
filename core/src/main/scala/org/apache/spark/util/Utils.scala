@@ -740,16 +740,16 @@ private[spark] object Utils
         } catch {
           case e: SocketTimeoutException =>
             // Handle connection or read timeout
-            logError(s"Connection timed out: ${uc.getURL}", e)
+            logError(s"Connection timed out: ${Utils.maskUserInfo(url)}", e)
 
           case e: FileNotFoundException =>
-            logWarning(s"File not found at ${uc.getURL}", e)
+            logWarning(s"File not found at ${Utils.maskUserInfo(url)}", e)
 
           case e: IOException =>
-            logError(s"I/O error while opening input stream from ${uc.getURL}", e)
+            logError(s"I/O error while opening input stream from ${Utils.maskUserInfo(url)}", e)
 
           case e: Exception =>
-            logError(s"Unexpected error fetching input stream from ${uc.getURL}", e)
+            logError(s"Unexpected error fetching input stream from ${Utils.maskUserInfo(url)}", e)
 
         }
       case "file" =>
